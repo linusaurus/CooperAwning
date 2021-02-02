@@ -33,7 +33,7 @@ version : 3.1 - 1/28/2021-
 #define D5_pin 5
 #define D6_pin 6
 #define D7_pin 7
-#define PRGM_Version 3.0
+#define PRGM_Version 3.2
 
 LiquidCrystal_I2C lcd(I2C_ADDR,En_pin,Rw_pin,Rs_pin,D4_pin,D5_pin,D6_pin,D7_pin);
 //--------------------------------------------------------------------------------
@@ -89,7 +89,7 @@ void PotReader()
 
 	potValue = smoothedValue;
 	lcd.setCursor ( 0, 1 ); // go to the 2nd line
-  sprintf(pot,"%3d",potValue);
+  	sprintf(pot,"%3d",potValue);
 	lcd.print(pot);
 }
 
@@ -101,17 +101,22 @@ void PotMonitor()
 		lcd.setCursor ( 10, 1 ); // go to the 2nd line
 		lcd.print("OPEN ");
 		opened = true;
-		closed = false;
-		
+		closed = false;	
 	}
-	if (potValue < CLOSED_LIMIT )
+	else if (potValue < CLOSED_LIMIT )
 	{
 		lcd.setCursor ( 10, 1 ); // go to the 2nd line
 		lcd.print("CLOSE");
 		closed = true;
 		opened = false;
 	}
-					
+	else if (potValue > CLOSED_LIMIT || potValue < OPEN_LIMIT )
+	{
+		lcd.setCursor ( 10, 1 ); // go to the 2nd line
+		lcd.print("     ");
+		//closed = true;
+		//opened = false;
+	}						
 }
 
 //Switch Block-Turned off
@@ -120,7 +125,7 @@ void LimitSwitchMonitor()
 		if (digitalRead(CLOSED_LIMIT_SWITCH)==HIGH)
 		{						
 			closed = true;
-			lcd.setCursor ( 10, 1 ); // go to the 2nd line
+			lcd.setCursor ( 10, 3 ); // go to the 2nd line
 			lcd.print("SWCLS");              
 		}
 
@@ -131,13 +136,13 @@ void LimitSwitchMonitor()
 			lcd.setCursor ( 10, 1 ); // go to the 2nd line
 			lcd.print("SWOPN");                
 		}				
-		else if(digitalRead(OPEN_LIMIT_SWITCH)==LOW && digitalRead(CLOSED_LIMIT_SWITCH)==LOW)
-		{				
-			lcd.setCursor ( 10, 1 ); // go to the 2nd line
-			lcd.print("+++++");	
-			opened = false;
-			closed= false;			
-		}
+		// else if(digitalRead(OPEN_LIMIT_SWITCH)==LOW && digitalRead(CLOSED_LIMIT_SWITCH)==LOW)
+		// {				
+		// 	lcd.setCursor ( 10, 1 ); // go to the 2nd line
+		// 	lcd.print("+++++");	
+		// 	opened = false;
+		// 	closed= false;			
+		// }
 }
 
 void SafeSwitchCheck()
@@ -160,17 +165,15 @@ void OpenSwitchMonitor()
 	if (digitalRead(OPEN_SWITCH)== HIGH && opened != true)
 	{		
 		MSPEED = 127;
-    lcd.setCursor ( 4, 1 ); 
+    	lcd.setCursor ( 4, 1 ); 
 		lcd.print("OP-2");
 		OPMODE = 2;
-
 	}
 	else if (digitalRead(OPEN_SWITCH)==HIGH &&  opened == true )
 	{
 		lcd.setCursor ( 4, 1 );
 		lcd.print("OP-2"); 
 		OPMODE = 0;
-
 	}
 	else if (digitalRead(OPEN_SWITCH)==LOW && digitalRead(CLOSE_SWITCH) == LOW)
 	{		
@@ -178,7 +181,6 @@ void OpenSwitchMonitor()
 		lcd.print("OP-0");
 		OPMODE = 0;		
 	}
-
 }
 
 //This is basic control, the operate switch must be held down to open/close
@@ -190,17 +192,14 @@ void CloseSwitchMonitor()
 	  	MSPEED = 127;
     	lcd.setCursor ( 4, 1 ); // go to the 2nd line
 		lcd.print("OP-1");
-		OPMODE = 1;
-		
+		OPMODE = 1;		
 	}
 	else if (digitalRead(CLOSE_SWITCH)==HIGH &&  closed == true)
 	{
 		lcd.setCursor ( 4, 1 ); // go to the 2nd line
 		lcd.print("OP-1");
-		OPMODE = 0;
-		
+		OPMODE = 0;		
 	}
-
 }
 
 void setup(){
@@ -232,13 +231,13 @@ controll.add(CloseSwitchThread);
 controll.add(SafeSwitchThread);
 
 ST.setRamping(50);
-SabertoothTXPinSerial.begin(9600);
+SabertoothTXPinSerial.begin(11500);
 
 //Pin Assignments
 pinMode(POT_PIN, INPUT);
-pinMode(CLOSED_LIMIT_SWITCH,INPUT);
-pinMode(OPEN_LIMIT_SWITCH,INPUT);
-pinMode(CLOSE_SWITCH,INPUT);
+pinMode(CLOSED_LIMIT_SWITCH,INPUT_PULLUP);
+pinMode(OPEN_LIMIT_SWITCH,INPUT_PULLUP);
+pinMode(CLOSE_SWITCH,INPUT_PULLUP);
 pinMode(SAFE_SWITCH,INPUT_PULLUP);
 
 lcd.setBacklightPin(BACKLIGHT_PIN,POSITIVE);
@@ -260,12 +259,16 @@ controll.run();
 
 if(safeToOperate){    // insure that the safe switch is "released" => HIGH
 
+	// Stop Mode-speed 0
     if (OPMODE == 0)
     {ST.motor(1,0);}
-    	
+
+    // Open mode-Full Speed	
     if (OPMODE == 1)
     {ST.motor(1,MSPEED);}
-    	
+
+    // Close Mode-reduce speed
+	// Speed reduced on closure in .2 version	
     if (OPMODE == 2)
     {ST.motor(1,-MSPEED);}
 	
