@@ -74,6 +74,8 @@ Thread* PotMonitorThread = new Thread();
 Thread* OpenSwitchThread = new Thread();
 Thread* CloseSwitchThread = new Thread();
 Thread* SafeSwitchThread = new Thread();
+Thread* ReadModeThread = new Thread();
+
 Sabertooth ST(128);
 
 //Multi-tasking functions
@@ -98,21 +100,21 @@ void PotMonitor()
 {
 	if (potValue > OPEN_LIMIT )
 	{
-		lcd.setCursor ( 10, 1 ); // go to the 2nd line
+		lcd.setCursor ( 10, 2 ); // go to the 3nd line
 		lcd.print("OPEN ");
 		opened = true;
 		closed = false;	
 	}
 	else if (potValue < CLOSED_LIMIT )
 	{
-		lcd.setCursor ( 10, 1 ); // go to the 2nd line
+		lcd.setCursor ( 10, 2 ); // go to the 3nd line
 		lcd.print("CLOSE");
 		closed = true;
 		opened = false;
 	}
 	else if (potValue > CLOSED_LIMIT || potValue < OPEN_LIMIT )
 	{
-		lcd.setCursor ( 10, 1 ); // go to the 2nd line
+		lcd.setCursor ( 10, 2 ); // go to the 2nd line
 		lcd.print("     ");
 		//closed = true;
 		//opened = false;
@@ -125,7 +127,7 @@ void LimitSwitchMonitor()
 		if (digitalRead(CLOSED_LIMIT_SWITCH)==HIGH)
 		{						
 			closed = true;
-			lcd.setCursor ( 10, 3 ); // go to the 2nd line
+			lcd.setCursor ( 10, 1 ); // go to the 2nd line
 			lcd.print("SWCLS");              
 		}
 
@@ -162,20 +164,21 @@ void SafeSwitchCheck()
  
 void OpenSwitchMonitor()
 {
-	if (digitalRead(OPEN_SWITCH)== HIGH && opened != true)
+	// Switch on OPEN(LOW) and open is not true;
+	if (digitalRead(OPEN_SWITCH)== LOW && opened != true)
 	{		
 		MSPEED = 127;
     	lcd.setCursor ( 4, 1 ); 
 		lcd.print("OP-2");
 		OPMODE = 2;
 	}
-	else if (digitalRead(OPEN_SWITCH)==HIGH &&  opened == true )
+	else if (digitalRead(OPEN_SWITCH)==LOW &&  opened == true )
 	{
 		lcd.setCursor ( 4, 1 );
 		lcd.print("OP-2"); 
 		OPMODE = 0;
 	}
-	else if (digitalRead(OPEN_SWITCH)==LOW && digitalRead(CLOSE_SWITCH) == LOW)
+	else if (digitalRead(OPEN_SWITCH)==HIGH && digitalRead(CLOSE_SWITCH) == HIGH)
 	{		
 		lcd.setCursor ( 4, 1 ); // go to the 2nd line
 		lcd.print("OP-0");
@@ -202,6 +205,13 @@ void CloseSwitchMonitor()
 	}
 }
 
+void ReadMode()
+{
+		lcd.setCursor(0,2);
+		lcd.print("MODE:");
+		lcd.print(OPMODE);
+}
+
 void setup(){
 	
 potReaderThread->onRun(PotReader);
@@ -222,6 +232,9 @@ CloseSwitchThread->setInterval(20);
 SafeSwitchThread->onRun(SafeSwitchCheck);
 SafeSwitchThread->setInterval(20);
 
+ReadModeThread->onRun(ReadMode);
+ReadModeThread->setInterval(50);
+
 // Adds the threads to the controller
 controll.add(potReaderThread);
 controll.add(PotMonitorThread);
@@ -229,6 +242,7 @@ controll.add(LimitSwitchThread);
 controll.add(OpenSwitchThread);
 controll.add(CloseSwitchThread);
 controll.add(SafeSwitchThread);
+controll.add(ReadModeThread);
 
 ST.setRamping(50);
 SabertoothTXPinSerial.begin(11500);
@@ -242,9 +256,9 @@ pinMode(SAFE_SWITCH,INPUT_PULLUP);
 
 lcd.setBacklightPin(BACKLIGHT_PIN,POSITIVE);
 lcd.setBacklight(LOW);
-lcd.begin (16, 2);
+lcd.begin (20, 4);
 lcd.home (); 
-lcd.print("AWNG v3.2 ->GO");
+lcd.print("AWNG v3.3 ->GO");
 
 }
 //////////////////////////////////////////////////////////////
@@ -253,16 +267,15 @@ lcd.print("AWNG v3.2 ->GO");
 
 void loop(){
   
- 
-//Start multitasking
-controll.run();
+ 	
+	//Start multitasking
+	controll.run();
 
-if(safeToOperate){    // insure that the safe switch is "released" => HIGH
+	if(safeToOperate){    // insure that the safe switch is "released" => HIGH
 
 	// Stop Mode-speed 0
     if (OPMODE == 0)
     {ST.motor(1,0);}
-
     // Open mode-Full Speed	
     if (OPMODE == 1)
     {ST.motor(1,MSPEED);}
@@ -273,4 +286,5 @@ if(safeToOperate){    // insure that the safe switch is "released" => HIGH
     {ST.motor(1,-MSPEED);}
 	
     }
+
 }
